@@ -1,0 +1,34 @@
+# erimulator
+a nes/6502 emulator written in rust.
+currently:
+- [x] gui
+  - [x] window + framebuffer texture
+  - [x] open rom button
+- [x] cartridge loading, parsing
+  - [x] ines header, prg/chr rom, trainer
+  - [ ] chr ram (chr size 0)
+- [ ] cpu emulation
+  - [x] bus: ram + prg rom
+  - [ ] stack: jsr, rts, pha, pla, php, plp
+  - [ ] flags: sec, clc, sei, cli, sed, cld, clv
+  - [ ] branches
+  - [ ] loads, stores, transfers
+  - [ ] logic: and, ora, eor, bit
+  - [ ] arithmetic: adc, sbc, compares
+  - [ ] inc/dec, shifts, rotates
+  - [ ] all addressing modes
+  - [ ] interrupts: reset, nmi, irq, brk, rti
+  - [ ] nestest passes all official opcodes
+  - [ ] unofficial opcodes (maybe)
+- [ ] ppu emulation
+  - [ ] registers ($2000-$2007)
+  - [ ] vblank + nmi
+  - [ ] background rendering
+  - [ ] sprites + sprite 0 hit
+  - [ ] scrolling
+- [ ] controls
+  - [ ] controller register ($4016)
+  - [ ] keyboard mapping
+- [ ] timing
+- [ ] audio emulation
+- [ ] mappers except mapper 0
