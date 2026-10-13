@@ -34,8 +34,6 @@ impl eframe::App for Erimulator {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let image = egui::ColorImage::from_rgb([256, 240], &self.framebuffer);
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("My egui Application");
-
             match &mut self.screen {
                 Some(texture) => texture.set(image, egui::TextureOptions::NEAREST),
                 None => {
