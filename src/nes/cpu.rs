@@ -29,7 +29,7 @@ impl Cpu {
         if value == 0 {
             self.status |= 0x02; // set zero flag
         } else {
-            self.status &= 0x80; // clear zero flag
+            self.status &= !0x02; // clear zero flag
         }
 
         if value & 0x80 != 0 {
@@ -52,12 +52,13 @@ impl Cpu {
             }
             0xA2 => { // LDX immediate
                 let value = self.bus.read(self.pc);
+                self.x = value;
                 self.set_zn(value);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
             0x86 => { // store stx (zero page addressing Mode)
-                let address = self.bus.read_u16(self.pc); 
+                let address = self.bus.read(self.pc) as u16; 
                 self.bus.write(address, self.x);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
