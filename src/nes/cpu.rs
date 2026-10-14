@@ -65,6 +65,41 @@ impl Cpu {
         self.cycles += 2;
     }
 
+    fn adc(&mut self, value: u8) {
+        let carry = if self.status & 0x01 != 0 { 1 } else { 0 };
+        let sum = self.a as u16 + value as u16 + carry as u16;
+        let result = sum as u8;
+
+        if sum > 0xFF {
+            self.status |= 0x01; // set carry flag
+        } else {
+            self.status &= !0x01; // unset carry flag
+        }
+
+        if ((self.a ^ result) & (value ^ result) & 0x80) != 0 {
+            self.status |= 0x40; // set overflow flag
+        } else {
+            self.status &= !0x40; // unset overflow flag
+        }
+
+        self.a = result;
+        self.set_zn(self.a);
+    }
+
+    fn sbc(&mut self, value: u8) {
+        self.adc(!value);
+    }
+
+    fn compare(&mut self, register: u8, value: u8) {
+        let result = register.wrapping_sub(value);
+        if register >= value {
+            self.status |= 0x01;
+        } else {
+            self.status &= !0x01;
+        }
+        self.set_zn(result);
+    }
+
     pub fn step(&mut self) {
         // fetch instruction
         let opcode = self.bus.read(self.pc);
@@ -127,6 +162,36 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
+            0x69 => { // ADC immediate
+                let value = self.bus.read(self.pc);
+                self.adc(value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0xE9 => { // SBC immediate
+                let value = self.bus.read(self.pc);
+                self.sbc(value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0xC9 => { // CMP immediate
+                let value = self.bus.read(self.pc);
+                self.compare(self.a, value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0xE0 => { // CPX immediate
+                let value = self.bus.read(self.pc);
+                self.compare(self.x, value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0xC0 => { // CPY immediate
+                let value = self.bus.read(self.pc);
+                self.compare(self.y, value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
             _ => {
                 panic!("!!! Unknown opcode: {:02X} at {:04X}", opcode, self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
@@ -138,7 +203,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nes::cartridge::Cartridge;
+    use crate::nes::cartridge::{Cartridge, Header, Mirroring};
 
     fn hex_field(line: &str, label: &str) -> u8 {
         let start = line.find(label).unwrap() + label.len();
@@ -171,6 +236,113 @@ mod tests {
             assert_eq!(cpu.cycles, cycles, "!!! CYC mismatch at line {number}: {line}");
 
             cpu.step();
+        }
+    }
+    // a cpu with a blank 16kb rom, for testing instructions without nestest
+    fn blank_cpu() -> Cpu {
+        let cartridge = Cartridge {
+            header: Header {
+                prg_rom_size: 1,
+                chr_rom_size: 0,
+                mapper: 0,
+                mirroring: Mirroring::Horizontal,
+                has_trainer: false,
+            },
+            prg_rom: vec![0; 16384],
+            chr_rom: vec![],
+        };
+        Cpu::new(Bus::new(cartridge))
+    }
+
+    const CARRY: u8 = 0x01;
+    const ZERO: u8 = 0x02;
+    const OVERFLOW: u8 = 0x40;
+    const NEGATIVE: u8 = 0x80;
+
+    // checks one flag and says which case failed
+    fn assert_flag(cpu: &Cpu, flag: u8, expected: bool, name: &str, case: &str) {
+        assert_eq!(cpu.status & flag != 0, expected, "{name} flag wrong for {case}");
+    }
+
+    #[test]
+    fn test_adc() {
+        // (a, value, carry in, result, carry out, overflow)
+        let cases = [
+            (0x50, 0x10, false, 0x60, false, false), // 80 + 16 = 96, fits
+            (0x50, 0x50, false, 0xA0, false, true),  // 80 + 80 = 160, signed overflow
+            (0x50, 0xD0, false, 0x20, true, false),  // 80 + -48 = 32, unsigned wrap only
+            (0xD0, 0x90, false, 0x60, true, true),   // -48 + -112 = -160, both wrap
+            (0xFF, 0x01, false, 0x00, true, false),  // wraps to zero
+            (0x10, 0x10, true, 0x21, false, false),  // carry in adds 1
+        ];
+
+        for (a, value, carry_in, result, carry_out, overflow) in cases {
+            let case = format!("ADC {a:02X} + {value:02X} (carry in {carry_in})");
+            let mut cpu = blank_cpu();
+            cpu.a = a;
+            cpu.status = if carry_in { CARRY } else { 0 };
+
+            cpu.adc(value);
+
+            assert_eq!(cpu.a, result, "result wrong for {case}");
+            assert_flag(&cpu, CARRY, carry_out, "carry", &case);
+            assert_flag(&cpu, OVERFLOW, overflow, "overflow", &case);
+            assert_flag(&cpu, ZERO, result == 0, "zero", &case);
+            assert_flag(&cpu, NEGATIVE, result & 0x80 != 0, "negative", &case);
+        }
+    }
+
+    #[test]
+    fn test_sbc() {
+        // (a, value, carry in, result, carry out, overflow)
+        // carry in = true means no borrow, which is how games always call it (SEC first)
+        let cases = [
+            (0x50, 0x30, true, 0x20, true, false),  // 80 - 48 = 32
+            (0x30, 0x50, true, 0xE0, false, false), // 48 - 80 = -32, borrow
+            (0x50, 0xB0, true, 0xA0, false, true),  // 80 - -80 = 160, signed overflow
+            (0x50, 0x50, true, 0x00, true, false),  // equal values give zero
+            (0x50, 0x30, false, 0x1F, true, false), // carry clear subtracts 1 more
+        ];
+
+        for (a, value, carry_in, result, carry_out, overflow) in cases {
+            let case = format!("SBC {a:02X} - {value:02X} (carry in {carry_in})");
+            let mut cpu = blank_cpu();
+            cpu.a = a;
+            cpu.status = if carry_in { CARRY } else { 0 };
+
+            cpu.sbc(value);
+
+            assert_eq!(cpu.a, result, "result wrong for {case}");
+            assert_flag(&cpu, CARRY, carry_out, "carry", &case);
+            assert_flag(&cpu, OVERFLOW, overflow, "overflow", &case);
+            assert_flag(&cpu, ZERO, result == 0, "zero", &case);
+            assert_flag(&cpu, NEGATIVE, result & 0x80 != 0, "negative", &case);
+        }
+    }
+
+    #[test]
+    fn test_compare() {
+        // (register, value, carry, zero, negative)
+        let cases = [
+            (0x10, 0x10, true, true, false),  // equal
+            (0x20, 0x10, true, false, false), // register bigger
+            (0x10, 0x20, false, false, true), // register smaller, 0x10 - 0x20 = 0xF0
+            (0x00, 0xFF, false, false, false), // unsigned compare: 0 < 255, 0x00 - 0xFF = 0x01
+        ];
+
+        for (register, value, carry, zero, negative) in cases {
+            let case = format!("compare {register:02X} with {value:02X}");
+            let mut cpu = blank_cpu();
+            cpu.a = 0x42;
+            cpu.status = OVERFLOW; // compare must not touch overflow
+
+            cpu.compare(register, value);
+
+            assert_flag(&cpu, CARRY, carry, "carry", &case);
+            assert_flag(&cpu, ZERO, zero, "zero", &case);
+            assert_flag(&cpu, NEGATIVE, negative, "negative", &case);
+            assert_flag(&cpu, OVERFLOW, true, "overflow", &case);
+            assert_eq!(cpu.a, 0x42, "compare changed A for {case}");
         }
     }
 }
