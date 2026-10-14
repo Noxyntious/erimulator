@@ -4,6 +4,7 @@ currently:
 - [x] gui
   - [x] window + framebuffer texture
   - [x] open rom button
+  - [ ] debugs (cpu register, memory viewer, pattern table and palette viewer)
 - [x] cartridge loading, parsing
   - [x] ines header, prg/chr rom, trainer
   - [ ] chr ram (chr size 0)
@@ -11,7 +12,7 @@ currently:
   - [x] bus: ram + prg rom
   - [ ] stack: jsr, rts, pha, pla, php, plp
   - [ ] flags: sec, clc, sei, cli, sed, cld, clv
-  - [ ] branches
+  - [x] branches
   - [ ] loads, stores, transfers
   - [ ] logic: and, ora, eor, bit
   - [ ] arithmetic: adc, sbc, compares
