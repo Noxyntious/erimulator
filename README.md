@@ -15,7 +15,7 @@ currently:
   - [x] branches
   - [ ] loads, stores, transfers
   - [ ] logic: and, ora, eor, bit
-  - [ ] arithmetic: adc, sbc, compares
+  - [x] arithmetic: adc, sbc, compares
   - [ ] inc/dec, shifts, rotates
   - [ ] all addressing modes
   - [ ] interrupts: reset, nmi, irq, brk, rti
