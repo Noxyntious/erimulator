@@ -10,11 +10,11 @@ currently:
   - [ ] chr ram (chr size 0)
 - [ ] cpu emulation
   - [x] bus: ram + prg rom
-  - [ ] stack: jsr, rts, pha, pla, php, plp
-  - [ ] flags: sec, clc, sei, cli, sed, cld, clv
+  - [x] stack: jsr, rts, pha, pla, php, plp
+  - [x] flags: sec, clc, sei, cli, sed, cld, clv
   - [x] branches
   - [ ] loads, stores, transfers
-  - [ ] logic: and, ora, eor, bit
+  - [x] logic: and, ora, eor, bit
   - [x] arithmetic: adc, sbc, compares
   - [ ] inc/dec, shifts, rotates
   - [ ] all addressing modes
@@ -33,3 +33,12 @@ currently:
 - [ ] timing
 - [ ] audio emulation
 - [ ] mappers except mapper 0
+
+## special thanks
+- nesdev wiki: https://www.nesdev.org/
+- retro6502: https://github.com/seasalim/retro6502/
+- 100th coin: https://www.patreon.com/100th_Coin/posts/making-your-nes-137873901
+- 6502.org: https://6502.org/users/obelisk/6502/reference.html
+
+## ai usage disclosure
+- ai was used to explain concepts, fix and explain bugs, and write tests. all actually running code is written by me.

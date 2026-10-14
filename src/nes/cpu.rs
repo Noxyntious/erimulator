@@ -116,6 +116,94 @@ impl Cpu {
             0x70 => self.branch(self.status & 0x40 != 0), // BVS
             0x50 => self.branch(self.status & 0x40 == 0), // BVC
 
+            // flag sets/clears
+            0x38 => { // SEC - set carry
+                self.status |= 0x01; 
+                self.cycles += 2;
+            }
+            0x18 => { // CLC - clear carry
+                self.status &= !0x01;
+                self.cycles += 2;
+            }
+            0x78 => { // SEI - set interrupt disable
+                self.status |= 0x04;
+                self.cycles += 2;
+            }
+            0x58 => { // CLI - clear interrupt disable
+                self.status &= !0x04;
+                self.cycles += 2;
+            }
+            0xF8 => { // SED - set decimal mode
+                self.status |= 0x08;
+                self.cycles += 2;
+            }
+            0xD8 => { // CLD - clear decimal mode
+                self.status &= !0x08;
+                self.cycles += 2;
+            }
+            0xB8 => { // CLV - clear overflow
+                self.status &= !0x40;
+                self.cycles += 2;
+            }
+
+            // stack
+            0x08 => { // PHP - push processor status
+                self.push(self.status | 0x30);
+                self.cycles += 3;
+            }
+            0x28 => { // PLP - pull processor status
+                self.status = (self.pull() & !0x10) | 0x20;
+                self.cycles += 4;
+            }
+            0x48 => { // PHA - push accumulator
+                self.push(self.a);
+                self.cycles += 3;
+            }
+            0x68 => { // PLA - pull accumulator
+                self.a = self.pull();
+                self.set_zn(self.a);
+                self.cycles += 4;
+            }
+            0x20 => { // JSR absolute
+                let target = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let return_addr = self.pc.wrapping_sub(1);
+                self.push((return_addr >> 8) as u8);
+                self.push(return_addr as u8);
+                self.pc = target;
+                self.cycles += 6;
+            }
+            0x60 => { // RTS
+                let low = self.pull() as u16;
+                let high = self.pull() as u16;
+                let return_addr = (high << 8) | low;
+                self.pc = return_addr.wrapping_add(1);
+                self.cycles += 6;
+            }
+
+            // logic
+            0x29 => { // AND immediate
+                let value = self.bus.read(self.pc);
+                self.a &= value;
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0x09 => { // ORA immediate
+                let value = self.bus.read(self.pc);
+                self.a |= value;
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0x49 => { // EOR immediate
+                let value = self.bus.read(self.pc);
+                self.a ^= value;
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+
             0x4C => { // JMP absolute
                 let address = self.bus.read_u16(self.pc);
                 self.pc = address;
@@ -128,31 +216,27 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
+            0xA0 => { // LDY immediate
+                let value = self.bus.read(self.pc);
+                self.y = value;
+                self.set_zn(value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
             0x86 => { // store stx (zero page addressing Mode)
                 let address = self.bus.read(self.pc) as u16; 
                 self.bus.write(address, self.x);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
             }
-            0x20 => { // JSR absolute
-                let target = self.bus.read_u16(self.pc);
-                self.pc = self.pc.wrapping_add(2);
-                let return_addr = self.pc.wrapping_sub(1);
-                self.push((return_addr >> 8) as u8);
-                self.push(return_addr as u8);
-                self.pc = target;
-                self.cycles += 6;
+            0x85 => { // store sta (zero page addressing Mode)
+                let address = self.bus.read(self.pc) as u16; 
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
             }
             0xEA => { // NOP
                 // literally just do nothing
-                self.cycles += 2;
-            }
-            0x38 => { // SEC
-                self.status |= 0x01; // set carry flag
-                self.cycles += 2;
-            }
-            0x18 => { // CLC
-                self.status &= !0x01; // clear carry flag
                 self.cycles += 2;
             }
             0xA9 => { // LDA immediate
@@ -190,6 +274,77 @@ impl Cpu {
                 let value = self.bus.read(self.pc);
                 self.compare(self.y, value);
                 self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0x24 => { // BIT zero page
+                let address = self.bus.read(self.pc) as u16;
+                let value = self.bus.read(address);
+                let result = self.a & value;
+                if value & 0x80 != 0 {
+                    self.status |= 0x80; // set negative flag
+                } else {
+                    self.status &= !0x80; // clear negative flag
+                }
+                if value & 0x40 != 0 {
+                    self.status |= 0x40; // set overflow flag
+                } else {
+                    self.status &= !0x40; // clear overflow flag
+                }
+                if result == 0 {
+                    self.status |= 0x02; // set zero flag
+                } else {
+                    self.status &= !0x02; // clear zero flag
+                }
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+            0xC8 => { // INY
+                self.y = self.y.wrapping_add(1);
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xE8 => { // INX
+                self.x = self.x.wrapping_add(1);
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0x88 => { // DEY
+                self.y = self.y.wrapping_sub(1);
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xCA => { // DEX
+                self.x = self.x.wrapping_sub(1);
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0xA8 => { // TAY
+                self.y = self.a;
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xAA => { // TAX
+                self.x = self.a;
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0x98 => { // TYA
+                self.a = self.y;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0x8A => { // TXA
+                self.a = self.x;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0xBA => { // TSX
+                self.x = self.sp;
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0x9A => { // TXS
+                self.sp = self.x;
                 self.cycles += 2;
             }
             _ => {
