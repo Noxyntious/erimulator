@@ -8,7 +8,7 @@ pub struct Cartridge {
 pub struct Header {
     pub prg_rom_size: u8,
     pub chr_rom_size: u8,
-    pub mapper: u8,
+    pub mapper: u16,
     pub mirroring: Mirroring,
     pub has_trainer: bool,
 }
@@ -60,7 +60,14 @@ pub fn parse_header(header: &[u8]) -> Result<Header, CartParseError> {
 
     let prg_rom_size = header[4];
     let chr_rom_size = header[5];
-    let mapper = (header[6] >> 4) | if header[7] & 0x0C != 0x08 && header[12..16].iter().any(|&b| b != 0) { 0 } else { header[7] & 0xF0 }; // ignore byte 7 if not nes 2.0 and bytes 12-15 have junk (apparently this causes other emulators to crash or fail to load roms. btw: who the hell is diskdude?)
+    let is_nes2 = header[7] & 0x0C == 0x08; // bits 2-3 of byte 7 == 0b10 means nes 2.0
+    let mapper = if is_nes2 {
+        (header[6] >> 4) as u16 | (header[7] & 0xF0) as u16 | ((header[8] & 0x0F) as u16) << 8 
+    } else if header[12..16].iter().any(|&b| b != 0) {
+        (header[6] >> 4) as u16 // ignore byte 7 if bytes 12-15 have junk (apparently this causes other emulators to crash or fail to load roms. btw: who the hell is diskdude?)
+    } else {
+        (header[6] >> 4) as u16 | (header[7] & 0xF0) as u16
+    };
     let has_trainer = header[6] & 0b0000_0100 != 0;
     let mirroring = if header[6] & 0b0001 != 0 {
         Mirroring::Vertical
@@ -203,4 +210,18 @@ mod tests {
         let header = parse_header(&header_bytes).unwrap();
         assert_eq!(header.mapper, 0x41);
     }
-}   
+
+    #[test]
+    fn test_nes2_mapper() { // nes 2.0 gets 4 extra mapper bits from byte 8, and junk in 12-15 is fine
+        let mut header_bytes = [0u8; 16];
+        header_bytes[0..4].copy_from_slice(b"NES\x1A");
+        header_bytes[4] = 0x01; // program size
+        header_bytes[5] = 0x01; // char rom size
+        header_bytes[6] = 0x10; // flags 6 - mapper lower nibble = 1
+        header_bytes[7] = 0x48; // flags 7 - mapper upper nibble = 4, nes 2.0 identifier
+        header_bytes[8] = 0x02; // mapper bits 8-11 = 2
+        header_bytes[12] = 0x01; // nonzero byte that would trigger the diskdude check on ines
+        let header = parse_header(&header_bytes).unwrap();
+        assert_eq!(header.mapper, 0x241);
+    }
+}
