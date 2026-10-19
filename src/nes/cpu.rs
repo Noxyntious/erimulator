@@ -180,6 +180,13 @@ impl Cpu {
                 self.pc = return_addr.wrapping_add(1);
                 self.cycles += 6;
             }
+            0x40 => { // RTI
+                self.status = (self.pull() & !0x10) | 0x20;
+                let low = self.pull() as u16;
+                let high = self.pull() as u16;
+                self.pc = (high << 8) | low;
+                self.cycles += 6;
+            }
 
             // logic
             0x29 => { // AND immediate
