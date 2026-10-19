@@ -60,7 +60,7 @@ pub fn parse_header(header: &[u8]) -> Result<Header, CartParseError> {
 
     let prg_rom_size = header[4];
     let chr_rom_size = header[5];
-    let mapper = (header[6] >> 4) | (header[7] & 0xF0);
+    let mapper = (header[6] >> 4) | if header[7] & 0x0C != 0x08 && header[12..16].iter().any(|&b| b != 0) { 0 } else { header[7] & 0xF0 }; // ignore byte 7 if not nes 2.0 and bytes 12-15 have junk (apparently this causes other emultors to crash or fail to load roms. btw: who the hell is diskdude?)
     let has_trainer = header[6] & 0b0000_0100 != 0;
     let mirroring = if header[6] & 0b0001 != 0 {
         Mirroring::Vertical
@@ -178,5 +178,29 @@ mod tests {
         assert_eq!(cartridge.prg_rom[0], 0xAB);
         assert_eq!(cartridge.chr_rom.len(), 8192);
         assert_eq!(cartridge.chr_rom[0], 0xCD);
+    }
+
+    #[test]
+    fn test_diskdude_junk_ignored() { // old dumps with "DiskDude!" in bytes 7-15 shouldnt get a bogus mapper
+        let mut header_bytes = [0u8; 16];
+        header_bytes[0..4].copy_from_slice(b"NES\x1A");
+        header_bytes[4] = 0x01; // program size
+        header_bytes[5] = 0x01; // char rom size
+        header_bytes[6] = 0x10; // flags 6 - mapper lower nibble = 1
+        header_bytes[7..16].copy_from_slice(b"DiskDude!");
+        let header = parse_header(&header_bytes).unwrap();
+        assert_eq!(header.mapper, 1); // 'D' (0x44) would make this 0x41 if byte 7 was used
+    }
+
+    #[test]
+    fn test_mapper_upper_nibble() { // clean header should still use byte 7 for the upper nibble
+        let mut header_bytes = [0u8; 16];
+        header_bytes[0..4].copy_from_slice(b"NES\x1A");
+        header_bytes[4] = 0x01; // program size
+        header_bytes[5] = 0x01; // char rom size
+        header_bytes[6] = 0x10; // flags 6 - mapper lower nibble = 1
+        header_bytes[7] = 0x40; // flags 7 - mapper upper nibble = 4
+        let header = parse_header(&header_bytes).unwrap();
+        assert_eq!(header.mapper, 0x41);
     }
 }   
