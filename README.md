@@ -1,7 +1,7 @@
 # erimulator
 a nes/6502 emulator written in rust.
 
-55/151 official opcodes implemented
+73/151 official opcodes implemented
 
 currently:
 - [x] gui
@@ -16,7 +16,7 @@ currently:
   - [x] stack: jsr, rts, pha, pla, php, plp
   - [x] flags: sec, clc, sei, cli, sed, cld, clv
   - [x] branches
-  - [ ] loads, stores, transfers
+  - [x] loads, stores, transfers
   - [x] logic: and, ora, eor, bit
   - [x] arithmetic: adc, sbc, compares
   - [ ] inc/dec, shifts, rotates

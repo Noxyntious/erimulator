@@ -219,6 +219,71 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(2);
                 self.cycles += 4;
             }
+            0xB5 => { // LDA zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0xA1 => { // LDA (indirect,X)
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                let effective_address_lo = self.bus.read(address);
+                let effective_address_hi = self.bus.read((address.wrapping_add(1)) & 0xFF);
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                self.a = self.bus.read(effective_address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+            0xB1 => { // LDA (indirect),Y
+                let base_address = self.bus.read(self.pc) as u16;
+                //let effective_address = self.bus.read_u16(base_address);
+                let effective_address_lo = self.bus.read(base_address);
+                let effective_address_hi = self.bus.read((base_address.wrapping_add(1)) & 0xFF);
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                let address = effective_address.wrapping_add(self.y as u16);
+                if (effective_address & 0xFF00) != (address & 0xFF00) {
+                    self.cycles += 1; // page cross penalty
+                }
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 5;
+            }
+            0xBD => { // LDA absolute,X
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.x as u16);
+                if (base_address & 0xFF00) != (address & 0xFF00) {
+                    self.cycles += 1; // page cross penalty
+                }
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0xA5 => { // LDA zero page
+                let address = self.bus.read(self.pc) as u16;
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+            0xB9 => { // LDA absolute,Y
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.y as u16);
+                if (base_address & 0xFF00) != (address & 0xFF00) {
+                    self.cycles += 1; // page cross penalty
+                }
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+
+
             0xA2 => { // LDX immediate
                 let value = self.bus.read(self.pc);
                 self.x = value;
@@ -228,6 +293,32 @@ impl Cpu {
             }
             0xAE => { // LDX absolute
                 let address = self.bus.read_u16(self.pc);
+                self.x = self.bus.read(address);
+                self.set_zn(self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0xA6 => { // LDX zero page
+                let address = self.bus.read(self.pc) as u16;
+                self.x = self.bus.read(address);
+                self.set_zn(self.x);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+            0xB6 => { // LDX zero page,Y
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = base_address.wrapping_add(self.y as u16) & 0xFF;
+                self.x = self.bus.read(address);
+                self.set_zn(self.x);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0xBE => { // LDX absolute,Y
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.y as u16);
+                if (base_address & 0xFF00) != (address & 0xFF00) {
+                    self.cycles += 1; // page cross penalty
+                }
                 self.x = self.bus.read(address);
                 self.set_zn(self.x);
                 self.pc = self.pc.wrapping_add(2);
@@ -247,22 +338,37 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(2);
                 self.cycles += 4;
             }
+            0xA4 => { // LDY zero page
+                let address = self.bus.read(self.pc) as u16;
+                self.y = self.bus.read(address);
+                self.set_zn(self.y);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+            0xB4 => { // LDY zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                self.y = self.bus.read(address);
+                self.set_zn(self.y);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0xBC => { // LDY absolute,X
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.x as u16);
+                if (base_address & 0xFF00) != (address & 0xFF00) {
+                    self.cycles += 1; // page cross penalty
+                }
+                self.y = self.bus.read(address);
+                self.set_zn(self.y);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+
             // stores
             0x8D => { // STA absolute
                 let address = self.bus.read_u16(self.pc);
                 self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0x8E => { // STX absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0x8C => { // STY absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.y);
                 self.pc = self.pc.wrapping_add(2);
                 self.cycles += 4;
             }
@@ -272,11 +378,51 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
             }
+            0x95 => { // STA zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0x9D => { // STA absolute,X
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.x as u16);
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 5;
+            }
+            0x99 => { // STA absolute,Y
+                let base_address = self.bus.read_u16(self.pc);
+                let address = base_address.wrapping_add(self.y as u16);
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 5;
+            }
+            0x8E => { // STX absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
             0x86 => { // STX zero page
                 let address = self.bus.read(self.pc) as u16; 
                 self.bus.write(address, self.x);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
+            }
+            0x96 => { // STX zero page,Y
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.y as u16)) & 0xFF;
+                self.bus.write(address, self.x);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0x8C => { // STY absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.y);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
             }
             0x84 => { // STY zero page
                 let address = self.bus.read(self.pc) as u16; 
@@ -284,7 +430,34 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
             }
-
+            0x94 => { // STY zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                self.bus.write(address, self.y);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 4;
+            }
+            0x81 => { // STA (indirect,X)
+                let base_address = self.bus.read(self.pc) as u16;
+                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
+                let effective_address_lo = self.bus.read(address);
+                let effective_address_hi = self.bus.read((address.wrapping_add(1)) & 0xFF);
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                self.bus.write(effective_address, self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+            0x91 => { // STA (indirect),Y
+                let base_address = self.bus.read(self.pc) as u16;
+                //let effective_address = self.bus.read_u16(base_address);
+                let effective_address_lo = self.bus.read(base_address);
+                let effective_address_hi = self.bus.read((base_address.wrapping_add(1)) & 0xFF);
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                let address = effective_address.wrapping_add(self.y as u16);
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
             // --
             // miscs (in nestest's order)
             0x4C => { // JMP absolute
