@@ -60,7 +60,7 @@ pub fn parse_header(header: &[u8]) -> Result<Header, CartParseError> {
 
     let prg_rom_size = header[4];
     let chr_rom_size = header[5];
-    let mapper = (header[6] >> 4) | if header[7] & 0x0C != 0x08 && header[12..16].iter().any(|&b| b != 0) { 0 } else { header[7] & 0xF0 }; // ignore byte 7 if not nes 2.0 and bytes 12-15 have junk (apparently this causes other emultors to crash or fail to load roms. btw: who the hell is diskdude?)
+    let mapper = (header[6] >> 4) | if header[7] & 0x0C != 0x08 && header[12..16].iter().any(|&b| b != 0) { 0 } else { header[7] & 0xF0 }; // ignore byte 7 if not nes 2.0 and bytes 12-15 have junk (apparently this causes other emulators to crash or fail to load roms. btw: who the hell is diskdude?)
     let has_trainer = header[6] & 0b0000_0100 != 0;
     let mirroring = if header[6] & 0b0001 != 0 {
         Mirroring::Vertical
