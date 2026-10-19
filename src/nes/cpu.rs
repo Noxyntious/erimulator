@@ -296,13 +296,6 @@ impl Cpu {
                 // literally just do nothing
                 self.cycles += 2;
             }
-            0xA9 => { // LDA immediate
-                let value = self.bus.read(self.pc);
-                self.a = value;
-                self.set_zn(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
             0x69 => { // ADC immediate
                 let value = self.bus.read(self.pc);
                 self.adc(value);
