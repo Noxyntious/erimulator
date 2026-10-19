@@ -347,6 +347,27 @@ impl Cpu {
                 self.sp = self.x;
                 self.cycles += 2;
             }
+            0x8E => { // STX absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0xAE => { // LDX absolute
+                let address = self.bus.read_u16(self.pc);
+                self.x = self.bus.read(address);
+                self.set_zn(self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0xAD => { // LDA absolute
+                let address = self.bus.read_u16(self.pc);
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            
             _ => {
                 panic!("!!! Unknown opcode: {:02X} at {:04X}", opcode, self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }

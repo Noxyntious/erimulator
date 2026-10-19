@@ -1,5 +1,6 @@
 # erimulator
 a nes/6502 emulator written in rust.
+
 currently:
 - [x] gui
   - [x] window + framebuffer texture
