@@ -203,11 +203,21 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
-
-            0x4C => { // JMP absolute
+            
+            // loads
+            0xA9 => { // LDA immediate
+                let value = self.bus.read(self.pc);
+                self.a = value;
+                self.set_zn(value);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 2;
+            }
+            0xAD => { // LDA absolute
                 let address = self.bus.read_u16(self.pc);
-                self.pc = address;
-                self.cycles += 3;
+                self.a = self.bus.read(address);
+                self.set_zn(self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
             }
             0xA2 => { // LDX immediate
                 let value = self.bus.read(self.pc);
@@ -216,6 +226,13 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
+            0xAE => { // LDX absolute
+                let address = self.bus.read_u16(self.pc);
+                self.x = self.bus.read(address);
+                self.set_zn(self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
             0xA0 => { // LDY immediate
                 let value = self.bus.read(self.pc);
                 self.y = value;
@@ -223,16 +240,56 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
-            0x86 => { // store stx (zero page addressing Mode)
+            0xAC => { // LDY absolute
+                let address = self.bus.read_u16(self.pc);
+                self.y = self.bus.read(address);
+                self.set_zn(self.y);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            // stores
+            0x8D => { // STA absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0x8E => { // STX absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.x);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0x8C => { // STY absolute
+                let address = self.bus.read_u16(self.pc);
+                self.bus.write(address, self.y);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
+            }
+            0x85 => { // STA zero page
+                let address = self.bus.read(self.pc) as u16; 
+                self.bus.write(address, self.a);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+            0x86 => { // STX zero page
                 let address = self.bus.read(self.pc) as u16; 
                 self.bus.write(address, self.x);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
             }
-            0x85 => { // store sta (zero page addressing Mode)
+            0x84 => { // STY zero page
                 let address = self.bus.read(self.pc) as u16; 
-                self.bus.write(address, self.a);
+                self.bus.write(address, self.y);
                 self.pc = self.pc.wrapping_add(1);
+                self.cycles += 3;
+            }
+
+            // --
+            // miscs (in nestest's order)
+            0x4C => { // JMP absolute
+                let address = self.bus.read_u16(self.pc);
+                self.pc = address;
                 self.cycles += 3;
             }
             0xEA => { // NOP
@@ -347,27 +404,6 @@ impl Cpu {
                 self.sp = self.x;
                 self.cycles += 2;
             }
-            0x8E => { // STX absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xAE => { // LDX absolute
-                let address = self.bus.read_u16(self.pc);
-                self.x = self.bus.read(address);
-                self.set_zn(self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xAD => { // LDA absolute
-                let address = self.bus.read_u16(self.pc);
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            
             _ => {
                 panic!("!!! Unknown opcode: {:02X} at {:04X}", opcode, self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
