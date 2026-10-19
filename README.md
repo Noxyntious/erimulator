@@ -1,6 +1,8 @@
 # erimulator
 a nes/6502 emulator written in rust.
 
+55/151 official opcodes implemented
+
 currently:
 - [x] gui
   - [x] window + framebuffer texture

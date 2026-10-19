@@ -203,7 +203,7 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
-            
+
             // loads
             0xA9 => { // LDA immediate
                 let value = self.bus.read(self.pc);
