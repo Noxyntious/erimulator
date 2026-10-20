@@ -1,13 +1,14 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![expect(rustdoc::missing_crate_level_docs)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui::{self};
 use erimulator::nes::cartridge::Cartridge;
 
 fn main() -> eframe::Result {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 600.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([530.0, 540.0])
+        .with_maximize_button(false)
+        .with_resizable(false),
         ..Default::default()
     };
     eframe::run_native(
@@ -37,6 +38,37 @@ impl Default for Erimulator {
 
 impl eframe::App for Erimulator {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::top("top_panel").show(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
+                ui.menu_button("NES", |ui| {
+                    if ui.button("Load cartridge").clicked() {
+                        if let Some(path) = rfd::FileDialog::new().add_filter("NES ROMs", &["nes"]).pick_file() {
+                            match std::fs::read(&path) {
+                                Ok(bytes) => match Cartridge::from_bytes(&bytes) {
+                                    Ok(cart) => {
+                                        self.cartridge = Some(cart);
+                                        self.error = None;
+                                    }
+                                    Err(e) => {
+                                        self.error = Some(format!("Failed to parse cartridge: {:?}", e));
+                                        self.cartridge = None;
+                                    }
+                                },
+                                Err(e) => {
+                                    self.error = Some(format!("Failed to read file: {:?}", e));
+                                    self.cartridge = None;
+                                }
+                            }
+                        }
+                    }
+                });
+                ui.menu_button("Preferences", |ui| {
+                    if ui.button("Controls").clicked() {
+                        todo!();
+                    }
+                });
+            });
+        });
         let image = egui::ColorImage::from_rgb([256, 240], &self.framebuffer);
         egui::CentralPanel::default().show(ui, |ui| {
             match &mut self.screen {
@@ -55,26 +87,7 @@ impl eframe::App for Erimulator {
                     egui::Image::from_texture(texture).fit_to_exact_size(egui::vec2(512.0, 480.0)),
                 );
             }
-            if ui.button("open rom").clicked() {
-                if let Some(path) = rfd::FileDialog::new().add_filter("NES ROMs", &["nes"]).pick_file() {
-                    match std::fs::read(&path) {
-                        Ok(bytes) => match Cartridge::from_bytes(&bytes) {
-                            Ok(cart) => {
-                                self.cartridge = Some(cart);
-                                self.error = None;
-                            }
-                            Err(e) => {
-                                self.error = Some(format!("Failed to parse cartridge: {:?}", e));
-                                self.cartridge = None;
-                            }
-                        },
-                        Err(e) => {
-                            self.error = Some(format!("Failed to read file: {:?}", e));
-                            self.cartridge = None;
-                        }
-                    }
-                }
-            }
+
             if let Some(error) = &self.error {
                 ui.label(format!("Error: {}", error));
             } else {
