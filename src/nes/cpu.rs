@@ -100,6 +100,52 @@ impl Cpu {
         self.set_zn(result);
     }
 
+    fn lsr(&mut self, value: u8) -> u8 {
+        if value & 0x01 != 0 {
+            self.status |= 0x01;
+        } else {
+            self.status &= !0x01;
+        }
+        let result = value >> 1;
+        self.set_zn(result);
+        result
+    }
+
+    fn asl(&mut self, value: u8) -> u8 {
+        if value & 0x80 != 0 {
+            self.status |= 0x01;
+        } else {
+            self.status &= !0x01;
+        }
+        let result = value << 1;
+        self.set_zn(result);
+        result
+    }
+
+    fn rol(&mut self, value: u8) -> u8 {
+        let old_carry = self.status & 0x01;
+        if value & 0x80 != 0 {
+            self.status |= 0x01;
+        } else {
+            self.status &= !0x01;
+        }
+        let result = (value << 1) | old_carry;
+        self.set_zn(result);
+        result
+    }
+
+    fn ror(&mut self, value: u8) -> u8 {
+        let old_carry = self.status & 0x01;
+        if value & 0x01 != 0 {
+            self.status |= 0x01;
+        } else {
+            self.status &= !0x01;
+        }
+        let result = (value >> 1) | (old_carry << 7);
+        self.set_zn(result);
+        result
+    }
+
     pub fn step(&mut self) {
         // fetch instruction
         let opcode = self.bus.read(self.pc);
@@ -485,51 +531,123 @@ impl Cpu {
                 self.cycles += 5; 
             }
 
-            // shifts
-            0x4A => { // LSR A
-                if self.a & 0x01 != 0 {
-                    self.status |= 0x01;
-                } else {
-                    self.status &= !0x01;
-                }
-                self.a >>= 1;
-                self.set_zn(self.a);
-                self.cycles += 2;
-            }
+            // shifts - asl
             0x0A => { // ASL A
-                if self.a & 0x80 != 0 {
-                    self.status |= 0x01;
-                } else {
-                    self.status &= !0x01;
-                }
-                self.a <<= 1;
-                self.set_zn(self.a);
+                self.a = self.asl(self.a);
                 self.cycles += 2;
             }
-            0x6A => { // ROR A
-                let old_carry = self.status & 0x01;
-                if self.a & 0x01 != 0 {
-                    self.status |= 0x01;
-                } else {
-                    self.status &= !0x01;
-                }
-                self.a >>= 1;
-                self.a |= old_carry << 7;
-                self.set_zn(self.a);
+            0x06 => { // ASL zero page
+                let address = self.bus.read(self.pc) as u16;
+                let value = self.bus.read(address);
+                let result = self.asl(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 5;
+            }
+            0x16 => { // ASL zero page,X
+                let address = self.bus.read(self.pc).wrapping_add(self.x) as u16;
+                let value = self.bus.read(address);
+                let result = self.asl(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+            0x0E => { // ASL absolute
+                let address = self.bus.read_u16(self.pc);
+                let value = self.bus.read(address);
+                let result = self.asl(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 6;
+            }
+            0x1E => { // ASL absolute,X
+                let address = self.bus.read_u16(self.pc).wrapping_add(self.x as u16);
+                let value = self.bus.read(address);
+                let result = self.asl(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 7;
+            }
+
+            // shifts - lsr
+            0x4A => { // LSR A
+                self.a = self.lsr(self.a);
                 self.cycles += 2;
             }
+            0x46 => { // LSR zero page
+                let address = self.bus.read(self.pc) as u16;
+                let value = self.bus.read(address);
+                let result = self.lsr(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 5;
+            }
+            0x56 => { // LSR zero page,X
+                let address = self.bus.read(self.pc).wrapping_add(self.x) as u16;
+                let result = self.lsr(self.bus.read(address));
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+            0x4E => { // LSR absolute
+                let address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let result = self.lsr(self.bus.read(address));
+                self.bus.write(address, result);
+                self.cycles += 6;
+            }
+            0x5E => { // LSR absolute,X
+                let address = self.bus.read_u16(self.pc).wrapping_add(self.x as u16);
+                self.pc = self.pc.wrapping_add(2);
+                let result = self.lsr(self.bus.read(address));
+                self.bus.write(address, result);
+                self.cycles += 7;
+            }
+            
+            // shifts - rol
             0x2A => { // ROL A
-                let old_carry = self.status & 0x01;
-                if self.a & 0x80 != 0 {
-                    self.status |= 0x01;
-                } else {
-                    self.status &= !0x01;
-                }
-                self.a <<= 1;
-                self.a |= old_carry;
-                self.set_zn(self.a);
+                self.a = self.rol(self.a);
                 self.cycles += 2;
             }
+            0x26 => { // ROL zero page
+                let address = self.bus.read(self.pc) as u16;
+                let value = self.bus.read(address);
+                let result = self.rol(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 5;
+            }
+            0x36 => { // ROL zero page,X
+                let address = self.bus.read(self.pc).wrapping_add(self.x) as u16;
+                let value = self.bus.read(address);
+                let result = self.rol(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+
+            // shifts - ror
+            0x6A => { // ROR A
+                self.a = self.ror(self.a);
+                self.cycles += 2;
+            }
+            0x66 => { // ROR zero page
+                let address = self.bus.read(self.pc) as u16;
+                let value = self.bus.read(address);
+                let result = self.ror(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 5;
+            }
+            0x76 => { // ROR zero page,X
+                let address = self.bus.read(self.pc).wrapping_add(self.x) as u16;
+                let value = self.bus.read(address);
+                let result = self.ror(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(1);
+                self.cycles += 6;
+            }
+        
 
             // --
             // miscs (in nestest's order)
