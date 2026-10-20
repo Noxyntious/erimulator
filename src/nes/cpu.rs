@@ -465,13 +465,75 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 6;
             }
-            // --
-            // miscs (in nestest's order)
+
+            // jumps
             0x4C => { // JMP absolute
                 let address = self.bus.read_u16(self.pc);
                 self.pc = address;
                 self.cycles += 3;
             }
+            0x6C => { // JMP indirect
+                let address = self.bus.read_u16(self.pc);
+                let effective_address_lo = self.bus.read(address);
+                let effective_address_hi = if (address & 0x00FF) == 0x00FF {
+                    self.bus.read(address & 0xFF00)
+                } else {
+                    self.bus.read(address.wrapping_add(1))
+                };
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                self.pc = effective_address;
+                self.cycles += 5; 
+            }
+
+            // shifts
+            0x4A => { // LSR A
+                if self.a & 0x01 != 0 {
+                    self.status |= 0x01;
+                } else {
+                    self.status &= !0x01;
+                }
+                self.a >>= 1;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0x0A => { // ASL A
+                if self.a & 0x80 != 0 {
+                    self.status |= 0x01;
+                } else {
+                    self.status &= !0x01;
+                }
+                self.a <<= 1;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0x6A => { // ROR A
+                let old_carry = self.status & 0x01;
+                if self.a & 0x01 != 0 {
+                    self.status |= 0x01;
+                } else {
+                    self.status &= !0x01;
+                }
+                self.a >>= 1;
+                self.a |= old_carry << 7;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0x2A => { // ROL A
+                let old_carry = self.status & 0x01;
+                if self.a & 0x80 != 0 {
+                    self.status |= 0x01;
+                } else {
+                    self.status &= !0x01;
+                }
+                self.a <<= 1;
+                self.a |= old_carry;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+
+            // --
+            // miscs (in nestest's order)
+
             0xEA => { // NOP
                 // literally just do nothing
                 self.cycles += 2;
