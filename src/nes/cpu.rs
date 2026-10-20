@@ -203,6 +203,40 @@ impl Cpu {
                 self.set_zn(self.x);
                 self.cycles += 2;
             }
+            0xE6 => { // INC zero page
+                let address = self.bus.read(self.pc) as u16;
+                self.pc = self.pc.wrapping_add(1);
+                let value = self.bus.read(address).wrapping_add(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 5;
+            }
+            0xF6 => { // INC zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                self.pc = self.pc.wrapping_add(1);
+                let address = base_address.wrapping_add(self.x as u16) & 0xFF;
+                let value = self.bus.read(address).wrapping_add(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 6;
+            }
+            0xEE => { // INC absolute
+                let address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let value = self.bus.read(address).wrapping_add(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 6;
+            }
+            0xFE => { // INC absolute,X
+                let base_address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let address = base_address.wrapping_add(self.x as u16);
+                let value = self.bus.read(address).wrapping_add(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 7;
+            }
 
             // decrements
             0x88 => { // DEY
@@ -215,7 +249,41 @@ impl Cpu {
                 self.set_zn(self.x);
                 self.cycles += 2;
             }
-            
+            0xC6 => { // DEC zero page
+                let address = self.bus.read(self.pc) as u16;
+                self.pc = self.pc.wrapping_add(1);
+                let value = self.bus.read(address).wrapping_sub(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 5;
+            }
+            0xD6 => { // DEC zero page,X
+                let base_address = self.bus.read(self.pc) as u16;
+                self.pc = self.pc.wrapping_add(1);
+                let address = base_address.wrapping_add(self.x as u16) & 0xFF;
+                let value = self.bus.read(address).wrapping_sub(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 6;
+            }
+            0xCE => { // DEC absolute
+                let address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let value = self.bus.read(address).wrapping_sub(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 6;
+            }
+            0xDE => { // DEC absolute,X
+                let base_address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let address = base_address.wrapping_add(self.x as u16);
+                let value = self.bus.read(address).wrapping_sub(1);
+                self.bus.write(address, value);
+                self.set_zn(value);
+                self.cycles += 7;
+            }
+
             // transfers
             0xA8 => { // TAY
                 self.y = self.a;
