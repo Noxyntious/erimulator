@@ -148,6 +148,45 @@ impl Cpu {
         self.cycles += cycles;
     }
 
+    fn ora(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.a |= self.bus.read(address);
+        self.set_zn(self.a);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn and(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.a &= self.bus.read(address);
+        self.set_zn(self.a);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn eor(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.a ^= self.bus.read(address);
+        self.set_zn(self.a);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn cmp(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.compare(self.a, self.bus.read(address));
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
     fn set_zn(&mut self, value: u8) {
         if value == 0 {
             self.status |= 0x02; // set zero flag
@@ -481,27 +520,32 @@ impl Cpu {
             }
 
             // logic
-            0x29 => { // AND immediate
-                let value = self.bus.read(self.pc);
-                self.a &= value;
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0x09 => { // ORA immediate
-                let value = self.bus.read(self.pc);
-                self.a |= value;
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0x49 => { // EOR immediate
-                let value = self.bus.read(self.pc);
-                self.a ^= value;
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
+            0x29 => self.and(AddressingMode::Immediate, 2),
+            0x25 => self.and(AddressingMode::ZeroPage, 3),
+            0x35 => self.and(AddressingMode::ZeroPageX, 4),
+            0x2D => self.and(AddressingMode::Absolute, 4),
+            0x3D => self.and(AddressingMode::AbsoluteX, 4),
+            0x39 => self.and(AddressingMode::AbsoluteY, 4),
+            0x21 => self.and(AddressingMode::IndirectX, 6),
+            0x31 => self.and(AddressingMode::IndirectY, 5),
+
+            0x09 => self.ora(AddressingMode::Immediate, 2),
+            0x05 => self.ora(AddressingMode::ZeroPage, 3),
+            0x15 => self.ora(AddressingMode::ZeroPageX, 4),
+            0x0D => self.ora(AddressingMode::Absolute, 4),
+            0x1D => self.ora(AddressingMode::AbsoluteX, 4),
+            0x19 => self.ora(AddressingMode::AbsoluteY, 4),
+            0x01 => self.ora(AddressingMode::IndirectX, 6),
+            0x11 => self.ora(AddressingMode::IndirectY, 5),
+
+            0x49 => self.eor(AddressingMode::Immediate, 2),
+            0x45 => self.eor(AddressingMode::ZeroPage, 3),
+            0x55 => self.eor(AddressingMode::ZeroPageX, 4),
+            0x4D => self.eor(AddressingMode::Absolute, 4),
+            0x5D => self.eor(AddressingMode::AbsoluteX, 4),
+            0x59 => self.eor(AddressingMode::AbsoluteY, 4),
+            0x41 => self.eor(AddressingMode::IndirectX, 6),
+            0x51 => self.eor(AddressingMode::IndirectY, 5),
 
             // loads
             0xA9 => self.lda(AddressingMode::Immediate, 2),
@@ -524,8 +568,7 @@ impl Cpu {
             0xA4 => self.ldy(AddressingMode::ZeroPage, 3),
             0xB4 => self.ldy(AddressingMode::ZeroPageX, 4),
             0xBC => self.ldy(AddressingMode::AbsoluteX, 4),
-                
-
+            
             // stores
             0x8D => self.sta(AddressingMode::Absolute, 4),
             0x85 => self.sta(AddressingMode::ZeroPage, 3),
@@ -712,6 +755,15 @@ impl Cpu {
                 self.cycles += 7;
             }
         
+            // compares
+            0xC9 => self.cmp(AddressingMode::Immediate, 2),
+            0xC5 => self.cmp(AddressingMode::ZeroPage, 3),
+            0xD5 => self.cmp(AddressingMode::ZeroPageX, 4),
+            0xCD => self.cmp(AddressingMode::Absolute, 4),
+            0xDD => self.cmp(AddressingMode::AbsoluteX, 4),
+            0xD9 => self.cmp(AddressingMode::AbsoluteY, 4),
+            0xC1 => self.cmp(AddressingMode::IndirectX, 6),
+            0xD1 => self.cmp(AddressingMode::IndirectY, 5),
 
             // --
             // miscs (in nestest's order)
@@ -732,12 +784,7 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 2;
             }
-            0xC9 => { // CMP immediate
-                let value = self.bus.read(self.pc);
-                self.compare(self.a, value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
+
             0xE0 => { // CPX immediate
                 let value = self.bus.read(self.pc);
                 self.compare(self.x, value);
@@ -774,7 +821,7 @@ impl Cpu {
             }
 
             _ => {
-                panic!("!!! Unknown opcode: {:02X} at {:04X}", opcode, self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
+                panic!("!!! Unknown opcode: {:02X} at {:04X} (dec: {})", opcode, self.pc.wrapping_sub(1), self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
         }
     }
