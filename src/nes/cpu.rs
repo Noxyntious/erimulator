@@ -11,6 +11,20 @@ pub struct Cpu {
     pub bus: Bus, // ambatubus
 }
 
+pub enum AddressingMode {
+    Immediate,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY,
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    IndirectX,
+    IndirectY
+}
+
+
+
 impl Cpu {
     pub fn new(bus: Bus) -> Self {
         Self {
@@ -23,6 +37,115 @@ impl Cpu {
             cycles: 7,
             bus,
         }
+    }
+
+    fn effective_address(&mut self, mode: AddressingMode) -> (u16, bool) {
+        match mode {
+            AddressingMode::Immediate => {
+                let address = self.pc;
+                self.pc = self.pc.wrapping_add(1);
+                (address, false)
+            }
+            AddressingMode::ZeroPage => {
+                let address = self.bus.read(self.pc) as u16;
+                self.pc = self.pc.wrapping_add(1);
+                (address, false)
+            }
+            AddressingMode::ZeroPageX => {
+                let address = self.bus.read(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let address = address.wrapping_add(self.x) as u16;
+                (address, false)
+            }
+            AddressingMode::ZeroPageY => {
+                let address = self.bus.read(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let address = address.wrapping_add(self.y) as u16;
+                (address, false)
+            }
+            AddressingMode::Absolute => {
+                let address = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                (address, false)
+            }
+            AddressingMode::AbsoluteX => {
+                let base = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let address = base.wrapping_add(self.x as u16);
+                let crossed = (base & 0xFF00) != (address & 0xFF00);
+                (address, crossed)
+            }
+            AddressingMode::AbsoluteY => {
+                let base = self.bus.read_u16(self.pc);
+                self.pc = self.pc.wrapping_add(2);
+                let address = base.wrapping_add(self.y as u16);
+                let crossed = (base & 0xFF00) != (address & 0xFF00);
+                (address, crossed)
+            }
+            AddressingMode::IndirectX => {
+                let base = self.bus.read(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let address = base.wrapping_add(self.x);
+                let effective_address_lo = self.bus.read(address as u16);
+                let effective_address_hi = self.bus.read(address.wrapping_add(1) as u16);
+                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
+                (effective_address, false)
+            }
+            AddressingMode::IndirectY => {
+                let base = self.bus.read(self.pc);
+                self.pc = self.pc.wrapping_add(1);
+                let address_lo = self.bus.read(base as u16);
+                let address_hi = self.bus.read(base.wrapping_add(1) as u16);
+                let address = u16::from_le_bytes([address_lo, address_hi]);
+                let effective_address = address.wrapping_add(self.y as u16);
+                let crossed = (address & 0xFF00) != (effective_address & 0xFF00);
+                (effective_address, crossed)
+            }
+        }
+    }
+
+    fn lda(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.a = self.bus.read(address);
+        self.set_zn(self.a);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+    fn ldx(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.x = self.bus.read(address);
+        self.set_zn(self.x);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+    fn ldy(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.y = self.bus.read(address);
+        self.set_zn(self.y);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn sta(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, _) = self.effective_address(mode);
+        self.bus.write(address, self.a);
+        self.cycles += cycles;
+    }
+    fn stx(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, _) = self.effective_address(mode);
+        self.bus.write(address, self.x);
+        self.cycles += cycles;
+    }
+    fn sty(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, _) = self.effective_address(mode);
+        self.bus.write(address, self.y);
+        self.cycles += cycles;
     }
 
     fn set_zn(&mut self, value: u8) {
@@ -381,259 +504,45 @@ impl Cpu {
             }
 
             // loads
-            0xA9 => { // LDA immediate
-                let value = self.bus.read(self.pc);
-                self.a = value;
-                self.set_zn(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0xAD => { // LDA absolute
-                let address = self.bus.read_u16(self.pc);
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xB5 => { // LDA zero page,X
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0xA1 => { // LDA (indirect,X)
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                let effective_address_lo = self.bus.read(address);
-                let effective_address_hi = self.bus.read((address.wrapping_add(1)) & 0xFF);
-                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
-                self.a = self.bus.read(effective_address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 6;
-            }
-            0xB1 => { // LDA (indirect),Y
-                let base_address = self.bus.read(self.pc) as u16;
-                //let effective_address = self.bus.read_u16(base_address);
-                let effective_address_lo = self.bus.read(base_address);
-                let effective_address_hi = self.bus.read((base_address.wrapping_add(1)) & 0xFF);
-                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
-                let address = effective_address.wrapping_add(self.y as u16);
-                if (effective_address & 0xFF00) != (address & 0xFF00) {
-                    self.cycles += 1; // page cross penalty
-                }
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 5;
-            }
-            0xBD => { // LDA absolute,X
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.x as u16);
-                if (base_address & 0xFF00) != (address & 0xFF00) {
-                    self.cycles += 1; // page cross penalty
-                }
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xA5 => { // LDA zero page
-                let address = self.bus.read(self.pc) as u16;
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0xB9 => { // LDA absolute,Y
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.y as u16);
-                if (base_address & 0xFF00) != (address & 0xFF00) {
-                    self.cycles += 1; // page cross penalty
-                }
-                self.a = self.bus.read(address);
-                self.set_zn(self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
+            0xA9 => self.lda(AddressingMode::Immediate, 2),
+            0xAD => self.lda(AddressingMode::Absolute, 4),
+            0xB5 => self.lda(AddressingMode::ZeroPageX, 4),
+            0xA1 => self.lda(AddressingMode::IndirectX, 6),
+            0xB1 => self.lda(AddressingMode::IndirectY, 5),
+            0xBD => self.lda(AddressingMode::AbsoluteX, 4),
+            0xA5 => self.lda(AddressingMode::ZeroPage, 3),
+            0xB9 => self.lda(AddressingMode::AbsoluteY, 4),
 
+            0xA2 => self.ldx(AddressingMode::Immediate, 2),
+            0xAE => self.ldx(AddressingMode::Absolute, 4),
+            0xA6 => self.ldx(AddressingMode::ZeroPage, 3),
+            0xB6 => self.ldx(AddressingMode::ZeroPageY, 4),
+            0xBE => self.ldx(AddressingMode::AbsoluteY, 4),
 
-            0xA2 => { // LDX immediate
-                let value = self.bus.read(self.pc);
-                self.x = value;
-                self.set_zn(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0xAE => { // LDX absolute
-                let address = self.bus.read_u16(self.pc);
-                self.x = self.bus.read(address);
-                self.set_zn(self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xA6 => { // LDX zero page
-                let address = self.bus.read(self.pc) as u16;
-                self.x = self.bus.read(address);
-                self.set_zn(self.x);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0xB6 => { // LDX zero page,Y
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = base_address.wrapping_add(self.y as u16) & 0xFF;
-                self.x = self.bus.read(address);
-                self.set_zn(self.x);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0xBE => { // LDX absolute,Y
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.y as u16);
-                if (base_address & 0xFF00) != (address & 0xFF00) {
-                    self.cycles += 1; // page cross penalty
-                }
-                self.x = self.bus.read(address);
-                self.set_zn(self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xA0 => { // LDY immediate
-                let value = self.bus.read(self.pc);
-                self.y = value;
-                self.set_zn(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0xAC => { // LDY absolute
-                let address = self.bus.read_u16(self.pc);
-                self.y = self.bus.read(address);
-                self.set_zn(self.y);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0xA4 => { // LDY zero page
-                let address = self.bus.read(self.pc) as u16;
-                self.y = self.bus.read(address);
-                self.set_zn(self.y);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0xB4 => { // LDY zero page,X
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                self.y = self.bus.read(address);
-                self.set_zn(self.y);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0xBC => { // LDY absolute,X
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.x as u16);
-                if (base_address & 0xFF00) != (address & 0xFF00) {
-                    self.cycles += 1; // page cross penalty
-                }
-                self.y = self.bus.read(address);
-                self.set_zn(self.y);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
+            0xA0 => self.ldy(AddressingMode::Immediate, 2),
+            0xAC => self.ldy(AddressingMode::Absolute, 4),
+            0xA4 => self.ldy(AddressingMode::ZeroPage, 3),
+            0xB4 => self.ldy(AddressingMode::ZeroPageX, 4),
+            0xBC => self.ldy(AddressingMode::AbsoluteX, 4),
+                
 
             // stores
-            0x8D => { // STA absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0x85 => { // STA zero page
-                let address = self.bus.read(self.pc) as u16; 
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0x95 => { // STA zero page,X
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0x9D => { // STA absolute,X
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.x as u16);
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 5;
-            }
-            0x99 => { // STA absolute,Y
-                let base_address = self.bus.read_u16(self.pc);
-                let address = base_address.wrapping_add(self.y as u16);
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 5;
-            }
-            0x8E => { // STX absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.x);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0x86 => { // STX zero page
-                let address = self.bus.read(self.pc) as u16; 
-                self.bus.write(address, self.x);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0x96 => { // STX zero page,Y
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.y as u16)) & 0xFF;
-                self.bus.write(address, self.x);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0x8C => { // STY absolute
-                let address = self.bus.read_u16(self.pc);
-                self.bus.write(address, self.y);
-                self.pc = self.pc.wrapping_add(2);
-                self.cycles += 4;
-            }
-            0x84 => { // STY zero page
-                let address = self.bus.read(self.pc) as u16; 
-                self.bus.write(address, self.y);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 3;
-            }
-            0x94 => { // STY zero page,X
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                self.bus.write(address, self.y);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 4;
-            }
-            0x81 => { // STA (indirect,X)
-                let base_address = self.bus.read(self.pc) as u16;
-                let address = (base_address.wrapping_add(self.x as u16)) & 0xFF;
-                let effective_address_lo = self.bus.read(address);
-                let effective_address_hi = self.bus.read((address.wrapping_add(1)) & 0xFF);
-                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
-                self.bus.write(effective_address, self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 6;
-            }
-            0x91 => { // STA (indirect),Y
-                let base_address = self.bus.read(self.pc) as u16;
-                //let effective_address = self.bus.read_u16(base_address);
-                let effective_address_lo = self.bus.read(base_address);
-                let effective_address_hi = self.bus.read((base_address.wrapping_add(1)) & 0xFF);
-                let effective_address = u16::from_le_bytes([effective_address_lo, effective_address_hi]);
-                let address = effective_address.wrapping_add(self.y as u16);
-                self.bus.write(address, self.a);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 6;
-            }
+            0x8D => self.sta(AddressingMode::Absolute, 4),
+            0x85 => self.sta(AddressingMode::ZeroPage, 3),
+            0x95 => self.sta(AddressingMode::ZeroPageX, 4),
+            0x9D => self.sta(AddressingMode::AbsoluteX, 5),
+            0x99 => self.sta(AddressingMode::AbsoluteY, 5),
+            0x81 => self.sta(AddressingMode::IndirectX, 6),
+            0x91 => self.sta(AddressingMode::IndirectY, 6),
+
+            0x8E => self.stx(AddressingMode::Absolute, 4),
+            0x86 => self.stx(AddressingMode::ZeroPage, 3),
+            0x96 => self.stx(AddressingMode::ZeroPageY, 4),
+
+            0x8C => self.sty(AddressingMode::Absolute, 4),
+            0x84 => self.sty(AddressingMode::ZeroPage, 3),
+            0x94 => self.sty(AddressingMode::ZeroPageX, 4),
+
 
             // jumps
             0x4C => { // JMP absolute
