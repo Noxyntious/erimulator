@@ -192,6 +192,61 @@ impl Cpu {
                 self.cycles += 2;
             }
 
+            // increments
+            0xC8 => { // INY
+                self.y = self.y.wrapping_add(1);
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xE8 => { // INX
+                self.x = self.x.wrapping_add(1);
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+
+            // decrements
+            0x88 => { // DEY
+                self.y = self.y.wrapping_sub(1);
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xCA => { // DEX
+                self.x = self.x.wrapping_sub(1);
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            
+            // transfers
+            0xA8 => { // TAY
+                self.y = self.a;
+                self.set_zn(self.y);
+                self.cycles += 2;
+            }
+            0xAA => { // TAX
+                self.x = self.a;
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0x98 => { // TYA
+                self.a = self.y;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0x8A => { // TXA
+                self.a = self.x;
+                self.set_zn(self.a);
+                self.cycles += 2;
+            }
+            0xBA => { // TSX
+                self.x = self.sp;
+                self.set_zn(self.x);
+                self.cycles += 2;
+            }
+            0x9A => { // TXS
+                self.sp = self.x;
+                self.cycles += 2;
+            }
+
             // stack
             0x08 => { // PHP - push processor status
                 self.push(self.status | 0x30);
@@ -740,55 +795,7 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
             }
-            0xC8 => { // INY
-                self.y = self.y.wrapping_add(1);
-                self.set_zn(self.y);
-                self.cycles += 2;
-            }
-            0xE8 => { // INX
-                self.x = self.x.wrapping_add(1);
-                self.set_zn(self.x);
-                self.cycles += 2;
-            }
-            0x88 => { // DEY
-                self.y = self.y.wrapping_sub(1);
-                self.set_zn(self.y);
-                self.cycles += 2;
-            }
-            0xCA => { // DEX
-                self.x = self.x.wrapping_sub(1);
-                self.set_zn(self.x);
-                self.cycles += 2;
-            }
-            0xA8 => { // TAY
-                self.y = self.a;
-                self.set_zn(self.y);
-                self.cycles += 2;
-            }
-            0xAA => { // TAX
-                self.x = self.a;
-                self.set_zn(self.x);
-                self.cycles += 2;
-            }
-            0x98 => { // TYA
-                self.a = self.y;
-                self.set_zn(self.a);
-                self.cycles += 2;
-            }
-            0x8A => { // TXA
-                self.a = self.x;
-                self.set_zn(self.a);
-                self.cycles += 2;
-            }
-            0xBA => { // TSX
-                self.x = self.sp;
-                self.set_zn(self.x);
-                self.cycles += 2;
-            }
-            0x9A => { // TXS
-                self.sp = self.x;
-                self.cycles += 2;
-            }
+
             _ => {
                 panic!("!!! Unknown opcode: {:02X} at {:04X}", opcode, self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
