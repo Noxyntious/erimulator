@@ -1,5 +1,11 @@
-# erimulator
-a nes/6502 emulator written in rust.
+erimulator
+
+***
+
+> [!WARNING]
+> This is NOT a complete NES emulator. If you are looking to play games, not yet.
+
+A NES/6502 emulator written in Rust.
 
 79/151 official opcodes implemented
 
