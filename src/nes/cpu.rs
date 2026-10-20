@@ -625,6 +625,22 @@ impl Cpu {
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 6;
             }
+            0x2E => { // ROL absolute
+                let address = self.bus.read_u16(self.pc);
+                let value = self.bus.read(address);
+                let result = self.rol(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 6;
+            }
+            0x3E => { // ROL absolute,X
+                let address = self.bus.read_u16(self.pc).wrapping_add(self.x as u16);
+                let value = self.bus.read(address);
+                let result = self.rol(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 7;
+            }
 
             // shifts - ror
             0x6A => { // ROR A
@@ -646,6 +662,22 @@ impl Cpu {
                 self.bus.write(address, result);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 6;
+            }
+            0x6E => { // ROR absolute
+                let address = self.bus.read_u16(self.pc);
+                let value = self.bus.read(address);
+                let result = self.ror(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 6;
+            }
+            0x7E => { // ROR absolute,X
+                let address = self.bus.read_u16(self.pc).wrapping_add(self.x as u16);
+                let value = self.bus.read(address);
+                let result = self.ror(value);
+                self.bus.write(address, result);
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 7;
             }
         
 
