@@ -270,6 +270,26 @@ impl Cpu {
         self.adc(!value);
     }
 
+    fn adc2(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        let value = self.bus.read(address);
+        self.adc(value);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn sbc2(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        let value = self.bus.read(address);
+        self.sbc(value);
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
     fn compare(&mut self, register: u8, value: u8) {
         let result = register.wrapping_sub(value);
         if register >= value {
@@ -798,19 +818,25 @@ impl Cpu {
                 // literally just do nothing
                 self.cycles += 2;
             }
-            0x69 => { // ADC immediate
-                let value = self.bus.read(self.pc);
-                self.adc(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0xE9 => { // SBC immediate
-                let value = self.bus.read(self.pc);
-                self.sbc(value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
+            
+            0x69 => self.adc2(AddressingMode::Immediate, 2),
+            0x65 => self.adc2(AddressingMode::ZeroPage, 3),
+            0x75 => self.adc2(AddressingMode::ZeroPageX, 4),
+            0x6D => self.adc2(AddressingMode::Absolute, 4),
+            0x7D => self.adc2(AddressingMode::AbsoluteX, 4),
+            0x79 => self.adc2(AddressingMode::AbsoluteY, 4),
+            0x61 => self.adc2(AddressingMode::IndirectX, 6),
+            0x71 => self.adc2(AddressingMode::IndirectY, 5),
 
+            0xE9 => self.sbc2(AddressingMode::Immediate, 2),
+            0xE5 => self.sbc2(AddressingMode::ZeroPage, 3),
+            0xF5 => self.sbc2(AddressingMode::ZeroPageX, 4),
+            0xED => self.sbc2(AddressingMode::Absolute, 4),
+            0xFD => self.sbc2(AddressingMode::AbsoluteX, 4),
+            0xF9 => self.sbc2(AddressingMode::AbsoluteY, 4),
+            0xE1 => self.sbc2(AddressingMode::IndirectX, 6),
+            0xF1 => self.sbc2(AddressingMode::IndirectY, 5),
+            
             0x24 => { // BIT zero page
                 let address = self.bus.read(self.pc) as u16;
                 let value = self.bus.read(address);
