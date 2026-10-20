@@ -346,6 +346,30 @@ impl Cpu {
         result
     }
 
+    fn interrupt(&mut self, vec: u16, brk: bool) {
+        self.push((self.pc >> 8) as u8); // pushing high
+        self.push(self.pc as u8); // pushing low
+        let flags = if brk == true { self.status | 0x30 } else { (self.status & !0x10) | 0x20 };
+        self.push(flags);
+        self.status |= 0x04;
+        self.pc = self.bus.read_u16(vec);
+        self.cycles += 7;
+    }
+
+    pub fn nmi(&mut self) {
+        self.interrupt(0xFFFA, false);
+    }
+
+    pub fn irq(&mut self) {
+        if self.status & 0x04 == 0 {
+            self.interrupt(0xFFFE, false);
+        } // if I is clear
+    }
+
+    pub fn reset(&mut self) {
+        self.pc = self.bus.read_u16(0xFFFC) // point to the games reset vector
+    }
+
     pub fn step(&mut self) {
         // fetch instruction
         let opcode = self.bus.read(self.pc);
@@ -818,7 +842,7 @@ impl Cpu {
                 // literally just do nothing
                 self.cycles += 2;
             }
-            
+
             0x69 => self.adc2(AddressingMode::Immediate, 2),
             0x65 => self.adc2(AddressingMode::ZeroPage, 3),
             0x75 => self.adc2(AddressingMode::ZeroPageX, 4),
@@ -882,6 +906,11 @@ impl Cpu {
                 self.cycles += 4;
             }
 
+            0x00 => { // BRK
+                self.pc = self.pc.wrapping_add(1);
+                self.interrupt(0xFFFE, true);
+            }
+
             _ => {
                 panic!("!!! Unknown opcode: {:02X} at {:04X} (dec: {})", opcode, self.pc.wrapping_sub(1), self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
@@ -912,6 +941,12 @@ mod tests {
 
         for (index, line) in log.lines().enumerate() {
             let number = index + 1;
+
+            // nestest marks unofficial opcodes with a * before the mnemonic, stop at the first one
+            if line.as_bytes()[15] == b'*' {
+                assert_eq!(number, 5004, "!!! expected the first unofficial opcode at line 5004, got {number}");
+                break;
+            }
 
             let pc = u16::from_str_radix(&line[0..4], 16).unwrap();
             let cycles_start = line.find("CYC:").unwrap() + 4;
