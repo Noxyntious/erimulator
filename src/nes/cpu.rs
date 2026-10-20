@@ -187,6 +187,24 @@ impl Cpu {
         }
     }
 
+    fn cpx(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.compare(self.x, self.bus.read(address));
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
+    fn cpy(&mut self, mode: AddressingMode, cycles: u64) {
+        let (address, page_crossed) = self.effective_address(mode);
+        self.compare(self.y, self.bus.read(address));
+        self.cycles += cycles;
+        if page_crossed == true {
+            self.cycles += 1;
+        }
+    }
+
     fn set_zn(&mut self, value: u8) {
         if value == 0 {
             self.status |= 0x02; // set zero flag
@@ -765,6 +783,14 @@ impl Cpu {
             0xC1 => self.cmp(AddressingMode::IndirectX, 6),
             0xD1 => self.cmp(AddressingMode::IndirectY, 5),
 
+            0xE0 => self.cpx(AddressingMode::Immediate, 2),
+            0xE4 => self.cpx(AddressingMode::ZeroPage, 3),
+            0xEC => self.cpx(AddressingMode::Absolute, 4),
+
+            0xC0 => self.cpy(AddressingMode::Immediate, 2),
+            0xC4 => self.cpy(AddressingMode::ZeroPage, 3),
+            0xCC => self.cpy(AddressingMode::Absolute, 4),
+
             // --
             // miscs (in nestest's order)
 
@@ -785,18 +811,6 @@ impl Cpu {
                 self.cycles += 2;
             }
 
-            0xE0 => { // CPX immediate
-                let value = self.bus.read(self.pc);
-                self.compare(self.x, value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
-            0xC0 => { // CPY immediate
-                let value = self.bus.read(self.pc);
-                self.compare(self.y, value);
-                self.pc = self.pc.wrapping_add(1);
-                self.cycles += 2;
-            }
             0x24 => { // BIT zero page
                 let address = self.bus.read(self.pc) as u16;
                 let value = self.bus.read(address);
@@ -818,6 +832,28 @@ impl Cpu {
                 }
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 3;
+            }
+            0x2C => { // BIT absolute
+                let address = self.bus.read_u16(self.pc);
+                let value = self.bus.read(address);
+                let result = self.a & value;
+                if value & 0x80 != 0 {
+                    self.status |= 0x80; // set negative flag
+                } else {
+                    self.status &= !0x80; // clear negative flag
+                }
+                if value & 0x40 != 0 {
+                    self.status |= 0x40; // set overflow flag
+                } else {
+                    self.status &= !0x40; // clear overflow flag
+                }
+                if result == 0 {
+                    self.status |= 0x02; // set zero flag
+                } else {
+                    self.status &= !0x02; // clear zero flag
+                }
+                self.pc = self.pc.wrapping_add(2);
+                self.cycles += 4;
             }
 
             _ => {

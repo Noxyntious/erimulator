@@ -7,7 +7,7 @@ erimulator
 
 A NES/6502 emulator written in Rust.
 
-131/151 official opcodes implemented
+136/151 official opcodes implemented
 
 currently:
 - [x] gui
