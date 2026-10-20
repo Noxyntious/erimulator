@@ -6,7 +6,7 @@ use erimulator::nes::cartridge::Cartridge;
 fn main() -> eframe::Result {
     env_logger::init();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([530.0, 540.0])
+        viewport: egui::ViewportBuilder::default().with_inner_size([530.0, 520.0])
         .with_maximize_button(false)
         .with_resizable(false),
         ..Default::default()
@@ -67,6 +67,25 @@ impl eframe::App for Erimulator {
                         todo!();
                     }
                 });
+                ui.menu_button("Debugs", |ui| {
+                    if ui.button("RAM viewer").clicked() {
+                        todo!();
+                    }
+                    if ui.button("PPU viewer").clicked() {
+                        todo!();
+                    }
+                    if ui.button("CPU viewer").clicked() {
+                        todo!();
+                    }
+                });
+                ui.separator();
+                if let Some(error) = &self.error {
+                    ui.label(format!("Error: {}", error));
+                } else if let Some(cart) = &self.cartridge {
+                    ui.label(format!("Loaded cartridge: {:?}", cart.header));
+                } else {
+                    ui.label("No cartridge loaded");
+                }
             });
         });
         let image = egui::ColorImage::from_rgb([256, 240], &self.framebuffer);
@@ -87,17 +106,6 @@ impl eframe::App for Erimulator {
                     egui::Image::from_texture(texture).fit_to_exact_size(egui::vec2(512.0, 480.0)),
                 );
             }
-
-            if let Some(error) = &self.error {
-                ui.label(format!("Error: {}", error));
-            } else {
-                if let Some(cart) = &self.cartridge {
-                    ui.label(format!("Loaded cartridge: {:?}", cart.header));
-                } else {
-                    ui.label("No cartridge loaded");
-                }
-            }
-
         });
     }
 }
