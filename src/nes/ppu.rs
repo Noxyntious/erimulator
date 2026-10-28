@@ -37,10 +37,7 @@ impl Ppu {
     fn palette_index(&self, addr: u16) -> usize {
         let mut addr = addr & 0x1F;
         match addr {
-            0x10 => { addr -= 0x10 },
-            0x14 => { addr -= 0x10 },
-            0x18 => { addr -= 0x10 },
-            0x1C => { addr -= 0x10 }, 
+            0x10 | 0x14 | 0x18 | 0x1C => { addr -= 0x10 },
             _ => {}
         }
         addr as usize
