@@ -180,7 +180,8 @@ impl Cpu {
 
     fn cmp(&mut self, mode: AddressingMode, cycles: u64) {
         let (address, page_crossed) = self.effective_address(mode);
-        self.compare(self.a, self.bus.read(address));
+        let value = self.bus.read(address);
+        self.compare(self.a, value);
         self.cycles += cycles;
         if page_crossed == true {
             self.cycles += 1;
@@ -189,7 +190,8 @@ impl Cpu {
 
     fn cpx(&mut self, mode: AddressingMode, cycles: u64) {
         let (address, page_crossed) = self.effective_address(mode);
-        self.compare(self.x, self.bus.read(address));
+        let value = self.bus.read(address);
+        self.compare(self.x, value);
         self.cycles += cycles;
         if page_crossed == true {
             self.cycles += 1;
@@ -198,7 +200,8 @@ impl Cpu {
 
     fn cpy(&mut self, mode: AddressingMode, cycles: u64) {
         let (address, page_crossed) = self.effective_address(mode);
-        self.compare(self.y, self.bus.read(address));
+        let value = self.bus.read(address);
+        self.compare(self.y, value);
         self.cycles += cycles;
         if page_crossed == true {
             self.cycles += 1;
@@ -721,7 +724,8 @@ impl Cpu {
             }
             0x56 => { // LSR zero page,X
                 let address = self.bus.read(self.pc).wrapping_add(self.x) as u16;
-                let result = self.lsr(self.bus.read(address));
+                let value = self.bus.read(address);
+                let result = self.lsr(value);
                 self.bus.write(address, result);
                 self.pc = self.pc.wrapping_add(1);
                 self.cycles += 6;
@@ -729,14 +733,16 @@ impl Cpu {
             0x4E => { // LSR absolute
                 let address = self.bus.read_u16(self.pc);
                 self.pc = self.pc.wrapping_add(2);
-                let result = self.lsr(self.bus.read(address));
+                let value = self.bus.read(address);
+                let result = self.lsr(value);
                 self.bus.write(address, result);
                 self.cycles += 6;
             }
             0x5E => { // LSR absolute,X
                 let address = self.bus.read_u16(self.pc).wrapping_add(self.x as u16);
                 self.pc = self.pc.wrapping_add(2);
-                let result = self.lsr(self.bus.read(address));
+                let value = self.bus.read(address);
+                let result = self.lsr(value);
                 self.bus.write(address, result);
                 self.cycles += 7;
             }

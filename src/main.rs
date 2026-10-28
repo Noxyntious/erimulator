@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod debugs;
+mod prefs;
+
 use eframe::egui::{self};
 use erimulator::nes::cartridge::Cartridge;
 
@@ -23,6 +26,10 @@ struct Erimulator {
     screen: Option<egui::TextureHandle>,
     cartridge: Option<Cartridge>,
     error: Option<String>,
+    ppu_view: bool,
+    cpu_view: bool,
+    ram_view: bool,
+    controls: bool,
 }
 
 impl Default for Erimulator {
@@ -32,6 +39,10 @@ impl Default for Erimulator {
             screen: None,
             cartridge: None,
             error: None,
+            ppu_view: false,
+            cpu_view: false,
+            ram_view: false,
+            controls: false,
         }
     }
 }
@@ -64,18 +75,18 @@ impl eframe::App for Erimulator {
                 });
                 ui.menu_button("Preferences", |ui| {
                     if ui.button("Controls").clicked() {
-                        todo!();
+                        self.controls = true;
                     }
                 });
                 ui.menu_button("Debugs", |ui| {
                     if ui.button("RAM viewer").clicked() {
-                        todo!();
+                        self.ram_view = true;
                     }
                     if ui.button("PPU viewer").clicked() {
-                        todo!();
+                        self.ppu_view = true;
                     }
                     if ui.button("CPU viewer").clicked() {
-                        todo!();
+                        self.cpu_view = true;
                     }
                 });
                 ui.separator();
@@ -107,5 +118,17 @@ impl eframe::App for Erimulator {
                 );
             }
         });
+        if self.ppu_view {
+            debugs::ppuview::show_ppu(&ui.ctx().clone(), &mut self.ppu_view);
+        }
+        if self.ram_view {
+            debugs::ramview::show_ram(&ui.ctx().clone(), &mut self.ram_view);
+        }
+        if self.cpu_view {
+            debugs::cpuview::show_cpu(&ui.ctx().clone(), &mut self.cpu_view);
+        }
+        if self.controls { // NO I DONT
+            prefs::controls::show_controls(&ui.ctx().clone(), &mut self.controls);
+        }
     }
 }
