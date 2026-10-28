@@ -15,7 +15,7 @@ pub struct Ppu {
     pub read_buf: u8,
     pub scanline: u16,
     pub dot: u16,
-    pub framecomplete: bool,
+    pub frame_complete: bool,
     pub nmi: bool,
 }
 
@@ -34,13 +34,64 @@ impl Ppu {
         bank * 0x400 + offset as usize
     }
 
+    fn palette_index(&self, addr: u16) -> usize {
+        let mut addr = addr & 0x1F;
+        match addr {
+            0x10 => { addr -= 0x10 },
+            0x14 => { addr -= 0x10 },
+            0x18 => { addr -= 0x10 },
+            0x1C => { addr -= 0x10 }, 
+            _ => {}
+        }
+        addr as usize
+    }
+        
+
     pub fn ppu_read(&self, addr: u16, cart: &Cartridge) -> u8 {
         let addr = addr & 0x3fff;
         match addr {
-            0x0000..=0x1FFF => {1 as u8}, //placeholders just so that it stops throwing errors
-            0x2000..=0x3EFF => {1 as u8},
-            0x3F00..=0x3FFF => {1 as u8},
+            0x0000..=0x1FFF => {
+                cart.chr_rom.get(addr as usize).copied().unwrap_or(0)
+            },
+            0x2000..=0x3EFF => {
+                self.vram[self.vram_index(addr, &cart.header.mirroring)]
+            },
+            0x3F00..=0x3FFF => {
+                self.palette[self.palette_index(addr)]
+            },
             _ => unreachable!()
+        }
+    }
+
+    pub fn ppu_write(&mut self, addr: u16, value: u8, cart: &Cartridge) {
+        let addr = addr & 0x3fff;
+        match addr {
+            0x0000..=0x1FFF => {
+                // dont write to chr rom because its rom (icba to do chr ram right now)
+            },
+            0x2000..=0x3EFF => {
+                let vramindex = self.vram_index(addr, &cart.header.mirroring);
+                self.vram[vramindex] = value;
+            },
+            0x3F00..=0x3FFF => {
+                let paletteindex = self.palette_index(addr);
+                self.palette[paletteindex] = value;
+            },
+            _ => unreachable!()
+        }
+    }
+
+
+    pub fn tick(&mut self) {
+        self.dot += 1;
+        if self.dot > 340 {
+            self.dot = 0;
+            self.scanline += 1;
+        }
+        
+        if self.scanline > 261 {
+            self.scanline = 0;
+            self.frame_complete = true;
         }
     }
 }
