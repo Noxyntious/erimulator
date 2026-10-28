@@ -1,4 +1,6 @@
-erimulator
+<p align="center">
+  <img width="750" height="128" src="assets/erimulatorlogo.png">
+</p>
 
 ***
 
