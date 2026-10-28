@@ -17,7 +17,7 @@ currently:
 - [x] cartridge loading, parsing
   - [x] ines header, prg/chr rom, trainer
   - [ ] chr ram (chr size 0)
-- [ ] cpu emulation
+- [x] cpu emulation
   - [x] bus: ram + prg rom
   - [x] stack: jsr, rts, pha, pla, php, plp
   - [x] flags: sec, clc, sei, cli, sed, cld, clv
