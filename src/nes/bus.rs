@@ -1,8 +1,10 @@
 use crate::nes::cartridge::Cartridge;
+//use crate::nes::ppu::Ppu;
 
 pub struct Bus {
     pub ram: [u8; 2048], // he has ram! get him! 2kb of ram
     pub cartridge: Cartridge, // the cartridge that is currently loaded
+    //pub ppu: Ppu,
 }
 
 impl Bus {
