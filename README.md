@@ -9,15 +9,15 @@
 
 A NES/6502 emulator written in Rust.
 
-currently:
-- [x] gui
+Implemented:
+- [x] GUI
   - [x] window + framebuffer texture
   - [x] open rom button
   - [ ] debugs (cpu register, memory viewer, pattern table and palette viewer)
-- [x] cartridge loading, parsing
+- [x] Cartridge loading, parsing
   - [x] ines header, prg/chr rom, trainer
   - [ ] chr ram (chr size 0)
-- [x] cpu emulation
+- [x] CPU emulation
   - [x] bus: ram + prg rom
   - [x] stack: jsr, rts, pha, pla, php, plp
   - [x] flags: sec, clc, sei, cli, sed, cld, clv
@@ -30,24 +30,25 @@ currently:
   - [x] interrupts: reset, nmi, irq, brk, rti
   - [x] nestest passes all official opcodes
   - [ ] unofficial opcodes (maybe)
-- [ ] ppu emulation
+- [ ] PPU emulation
   - [ ] registers ($2000-$2007)
   - [ ] vblank + nmi
   - [ ] background rendering
   - [ ] sprites + sprite 0 hit
   - [ ] scrolling
-- [ ] controls
+- [ ] Controls
   - [ ] controller register ($4016)
   - [ ] keyboard mapping
-- [ ] timing
-- [ ] audio emulation
-- [ ] mappers except mapper 0
+- [ ] Timing
+- [ ] Audio emulation
+- [ ] Mappers except NROM
 
-## special thanks
-- nesdev wiki: https://www.nesdev.org/
-- retro6502: https://github.com/seasalim/retro6502/
-- 100th coin: https://www.patreon.com/100th_Coin/posts/making-your-nes-137873901
+## Special thanks
+- NESDev wiki: https://www.nesdev.org/
+- Retro6502: https://github.com/seasalim/retro6502/
+- 100th Coin: https://www.patreon.com/100th_Coin/posts/making-your-nes-137873901
 - 6502.org: https://6502.org/users/obelisk/6502/reference.html
+- TetaNES: https://github.com/lukexor/tetanes/
 
-## ai usage disclosure
-- ai was used to explain concepts, fix and explain bugs, and write tests. all actually running code is written by me.
+## AI usage disclosure
+- AI was used to explain concepts, fix and explain bugs, and write tests. All actually running code is written by me.
