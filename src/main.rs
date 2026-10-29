@@ -4,6 +4,8 @@ mod debugs;
 mod prefs;
 
 use eframe::egui::{self};
+use erimulator::nes::cpu::Cpu;
+use erimulator::nes::bus::Bus;
 use erimulator::nes::cartridge::Cartridge;
 
 fn main() -> eframe::Result {
@@ -30,6 +32,7 @@ struct Erimulator {
     cpu_view: bool,
     ram_view: bool,
     controls: bool,
+    cpu: Option<Cpu>,
 }
 
 impl Default for Erimulator {
@@ -43,6 +46,7 @@ impl Default for Erimulator {
             cpu_view: false,
             ram_view: false,
             controls: false,
+            cpu: None,
         }
     }
 }
@@ -57,17 +61,20 @@ impl eframe::App for Erimulator {
                             match std::fs::read(&path) {
                                 Ok(bytes) => match Cartridge::from_bytes(&bytes) {
                                     Ok(cart) => {
-                                        self.cartridge = Some(cart);
+                                        let bus = Bus::new(cart);
+                                        let mut cpu = Cpu::new(bus);
+                                        cpu.reset();
+                                        self.cpu = Some(cpu);
                                         self.error = None;
                                     }
                                     Err(e) => {
                                         self.error = Some(format!("Failed to parse cartridge: {:?}", e));
-                                        self.cartridge = None;
+                                        self.cpu = None;
                                     }
                                 },
                                 Err(e) => {
                                     self.error = Some(format!("Failed to read file: {:?}", e));
-                                    self.cartridge = None;
+                                    self.cpu = None;
                                 }
                             }
                         }
@@ -92,8 +99,8 @@ impl eframe::App for Erimulator {
                 ui.separator();
                 if let Some(error) = &self.error {
                     ui.label(format!("Error: {}", error));
-                } else if let Some(cart) = &self.cartridge {
-                    ui.label(format!("Loaded cartridge: {:?}", cart.header));
+                } else if let Some(cpu) = &self.cpu {
+                    ui.label(format!("Loaded cartridge: {:?}", cpu.bus.cartridge.header));
                 } else {
                     ui.label("No cartridge loaded");
                 }
@@ -125,7 +132,7 @@ impl eframe::App for Erimulator {
             debugs::ramview::show_ram(&ui.ctx().clone(), &mut self.ram_view);
         }
         if self.cpu_view {
-            debugs::cpuview::show_cpu(&ui.ctx().clone(), &mut self.cpu_view);
+            debugs::cpuview::show_cpu(&ui.ctx().clone(), &mut self.cpu_view, self.cpu.as_mut());
         }
         if self.controls { // NO I DONT
             prefs::controls::show_controls(&ui.ctx().clone(), &mut self.controls);

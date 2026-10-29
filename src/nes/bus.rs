@@ -22,6 +22,16 @@ impl Bus {
             _ => 0,
         }
     }
+    pub fn peek(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize],
+            0x8000..=0xFFFF => {
+                let index = (addr - 0x8000) as usize % self.cartridge.prg_rom.len();
+                self.cartridge.prg_rom[index]
+            }
+            _ => 0,
+        }
+    }
     pub fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x0000..=0x1FFF => self.ram[(addr & 0x07FF) as usize] = value,

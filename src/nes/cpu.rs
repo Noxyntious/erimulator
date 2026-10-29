@@ -23,8 +23,6 @@ pub enum AddressingMode {
     IndirectY
 }
 
-
-
 impl Cpu {
     pub fn new(bus: Bus) -> Self {
         Self {
@@ -918,6 +916,11 @@ impl Cpu {
             }
 
             _ => {
+                rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error)
+                .set_title("erimulator")
+                .set_description(&format!("Unknown opcode: {:02X}", opcode))
+                .show();
                 panic!("!!! Unknown opcode: {:02X} at {:04X} (dec: {})", opcode, self.pc.wrapping_sub(1), self.pc.wrapping_sub(1)); // real nes hardware wraps around on overflow, so we wanna use wrapping_sub here and everywhere to emulate that behavior. if we used -, rust would panic (well, everywhere except the cycle counter as i dont think that really matters)
             }
         }
