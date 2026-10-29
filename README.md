@@ -31,7 +31,7 @@ Implemented:
   - [x] nestest passes all official opcodes
   - [ ] unofficial opcodes (maybe)
 - [ ] PPU emulation
-  - [ ] registers ($2000-$2007)
+  - [x] registers ($2000-$2007)
   - [ ] vblank + nmi
   - [ ] background rendering
   - [ ] sprites + sprite 0 hit
@@ -45,7 +45,7 @@ Implemented:
 
 ## Special thanks
 - NESDev wiki: https://www.nesdev.org/
-- Retro6502: https://github.com/seasalim/retro6502/
+- retro6502: https://github.com/seasalim/retro6502/
 - 100th Coin: https://www.patreon.com/100th_Coin/posts/making-your-nes-137873901
 - 6502.org: https://6502.org/users/obelisk/6502/reference.html
 - TetaNES: https://github.com/lukexor/tetanes/
