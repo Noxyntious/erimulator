@@ -20,6 +20,27 @@ pub struct Ppu {
 }
 
 impl Ppu {
+    pub fn new() -> Self {
+        Self {
+            vram: [0; 0x800],
+            oam: [0; 0x100],
+            ctrl: 0,
+            mask: 0,
+            status: 0,
+            oamaddr: 0,
+            palette: [0; 0x20],
+            v: 0,
+            t: 0,
+            x: 0,
+            w: false,
+            read_buf: 0,
+            scanline: 0,
+            dot: 0,
+            frame_complete: false,
+            nmi: false,
+        }
+    }
+
     fn vram_index(&self, addr: u16, mirroring: &Mirroring) -> usize {
         let addr = (addr - 0x2000) & 0x0fff;
         let table = addr / 0x400;
@@ -75,6 +96,37 @@ impl Ppu {
                 self.palette[paletteindex] = value;
             },
             _ => unreachable!()
+        }
+    }
+
+    pub fn cpu_read(&mut self, reg: u16, cart: &Cartridge) -> u8 {
+        let reg = reg & 7;
+        match reg {
+            2 => {
+                self.status &= !0x80;
+                self.w = false;
+                self.status
+            }
+            4 => {
+                self.oam[self.oamaddr as usize]
+            }
+            7 => {
+                let result;
+                if (self.v & 0x3fff) < 0x3f00 {
+                    result = self.read_buf;
+                    self.read_buf = self.ppu_read(self.v, cart);
+                } else {
+                    result = self.ppu_read(self.v, cart);
+                    self.read_buf = self.ppu_read(self.v - 0x1000, cart);
+                }
+                if (self.ctrl & 0x04) != 0 {
+                    self.v = self.v.wrapping_add(32);
+                } else {
+                    self.v = self.v.wrapping_add(1);
+                }
+                result
+            }
+            _ => 0,
         }
     }
 

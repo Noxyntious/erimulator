@@ -1,15 +1,15 @@
 use crate::nes::cartridge::Cartridge;
-//use crate::nes::ppu::Ppu;
+use crate::nes::ppu::Ppu;
 
 pub struct Bus {
     pub ram: [u8; 2048], // he has ram! get him! 2kb of ram
     pub cartridge: Cartridge, // the cartridge that is currently loaded
-    //pub ppu: Ppu,
+    pub ppu: Ppu,
 }
 
 impl Bus {
     pub fn new(cartridge: Cartridge) -> Self {
-        Self { ram: [0; 2048], cartridge }
+        Self { ram: [0; 2048], cartridge, ppu: Ppu::new() }
     }
     pub fn read(&mut self, addr: u16) -> u8 {
         match addr {
