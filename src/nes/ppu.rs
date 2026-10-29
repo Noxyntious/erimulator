@@ -99,13 +99,22 @@ impl Ppu {
         }
     }
 
+    fn inc_v(&mut self) {
+        if (self.ctrl & 0x04) != 0 {
+            self.v = self.v.wrapping_add(32);
+        } else {
+            self.v = self.v.wrapping_add(1);
+        }
+    }
+
     pub fn cpu_read(&mut self, reg: u16, cart: &Cartridge) -> u8 {
         let reg = reg & 7;
         match reg {
             2 => {
+                let status = self.status;
                 self.status &= !0x80;
                 self.w = false;
-                self.status
+                status
             }
             4 => {
                 self.oam[self.oamaddr as usize]
@@ -119,11 +128,7 @@ impl Ppu {
                     result = self.ppu_read(self.v, cart);
                     self.read_buf = self.ppu_read(self.v - 0x1000, cart);
                 }
-                if (self.ctrl & 0x04) != 0 {
-                    self.v = self.v.wrapping_add(32);
-                } else {
-                    self.v = self.v.wrapping_add(1);
-                }
+                self.inc_v();
                 result
             }
             _ => 0,
